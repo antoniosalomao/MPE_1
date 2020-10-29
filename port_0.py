@@ -43,15 +43,15 @@ covar_returns = df_returns.cov()
 correl_returns = df_returns.corr()
 mask_covar = np.triu(np.ones_like(correl_returns, dtype=np.bool))
 f, ax = plt.subplots(figsize=(11, 9))
-cmap_i = sns.diverging_palette(h_neg=220, h_pos=10, as_cmap=True, )
-sns.heatmap(correl_returns, mask=mask_covar, cmap=cmap_i, center=0,
+cmap_i = sns.diverging_palette(h_neg=220, h_pos=10, as_cmap=True)
+sns.heatmap(data=correl_returns, mask=mask_covar, cmap=cmap_i, center=0,
             square=True, linewidths=0.5, cbar_kws={"shrink": 0.8}, annot=True)
 #plt.show()
 
 # Arrays
 returns = np.array([v for v in mu_dict.values()])
 covar = np.array(covar_returns)
-weights = np.random.random(size=10)
+weights = np.random.uniform(low=0.1, high=0.15, size=(10,))
 expected_return = returns.T@weights
 port_variance = weights.T@covar@weights
 port_stdev = np.sqrt(port_variance)
