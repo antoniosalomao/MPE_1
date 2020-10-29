@@ -29,8 +29,6 @@ print(df_ps.info())
 print(df_ps.head())
 print('\n')
 
-# Calculating the (Sample) Variance-Covariance Matrix
-
 # (1) Returns (log)
 df_returns = np.log(df_ps).diff(1).dropna(how='all')
 mu_returns = df_returns.mean()
@@ -38,7 +36,7 @@ mu_dict = {ticker:val for ticker, val in mu_returns.iteritems()}
 for k, v in mu_dict.items():
     print('Ticker: {}'.format(k), '\t', 'Average return: {:.4f} %'.format(v*100))
 
-# (2) Covariance Matrix (numpy) + correlation between asset returns
+# (2) Variance - Covariance Matrix (numpy) + correlation between asset returns
 covar_returns = df_returns.cov()
 correl_returns = df_returns.corr()
 mask_covar = np.triu(np.ones_like(correl_returns, dtype=np.bool))
@@ -62,6 +60,10 @@ print(port_stdev)
 
 # Optimization
 # ...
+# Reference 
+# Numerical Python - Ch. 6
+
+
 
 
 
