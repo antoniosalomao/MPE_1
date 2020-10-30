@@ -135,16 +135,15 @@ for i in range(n_trials):
 mean_w = np.mean(all_w, axis=0)
 print(mean_w)
 
-opt_check = get_ret_vol_mvutility(weights=opt_weights, d_ra=1)
-df_final = pd.DataFrame(opt_weights, index=mu_returns.index, columns=['Optimal Weights'])
+opt_check = get_ret_vol_mvutility(weights=mean_w, d_ra=1)
+df_final = pd.DataFrame(mean_w, index=mu_returns.index, columns=['Optimal Mean Weights'])
 
-print('\n')
-print(opt_results)
-print('\n')
 print('Portfolio Return: {:.4f}%'.format(opt_check[0]*100))
 print('Portfolio Volatility: {:.4f}%'.format(np.sqrt(opt_check[1])*100))
 print('(?) MV Utility: {:.4f}'.format(opt_check[2]))
 print('\n')
 print(df_final)
-print('\nSum: {}'.format(np.sum(opt_weights)))
+print('\nSum: {}'.format(np.sum(mean_w)))
 print('# Number of successes in {} Trials: {}'.format(n_trials, s_n))
+
+# Note higher sharpe ratio !
