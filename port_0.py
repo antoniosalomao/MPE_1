@@ -13,7 +13,7 @@ tickers_br = ['VALE3.SA', 'ITUB4.SA', 'PETR4.SA', 'ABEV3.SA', 'RADL3.SA',
 
 yfinance_dict = { 'tickers': sorted(tickers_br, reverse=False),
                     'start': '2015-01-01',
-                      'end': '2019-12-31',
+                      'end': '2020-10-30',
                  'interval': '1d'}
 
 df_main = yf.download(**yfinance_dict,)
@@ -87,16 +87,16 @@ def get_bounds(weights, LB, UB):
     return w_B
 
 g_cons = ({'type': 'eq', 
-            'fun': target_vol(sigma=0.25)})
+            'fun': target_vol(sigma=0.2)})
 h_cons = ({'type': 'ineq', 
-            'fun': check_sum(C=2)})
+            'fun': check_sum(C=2.5)})
 
 all_w = []
 s_n = 0
 n_trials = 200
 for i in range(n_trials):
-    init_weights = np.random.uniform(low=-0.3, high=0.3, size=(len(mu_dict),))
-    G_bounds = get_bounds(weights=init_weights, LB=-0.3, UB=0.3)
+    init_weights = np.random.uniform(low=-0.15, high=0.15, size=(len(mu_dict),))
+    G_bounds = get_bounds(weights=init_weights, LB=-0.15, UB=0.15)
 
     opt_dict = { 'fun': lambda weights: get_ret_vol_mvutility(weights, d_ra=1)[2]*-1,
                   'x0': init_weights,
