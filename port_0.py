@@ -87,16 +87,16 @@ def get_bounds(weights, LB, UB):
     return w_B
 
 g_cons = ({'type': 'eq', 
-            'fun': target_vol(sigma=0.2)})
+            'fun': target_vol(sigma=0.25)})
 h_cons = ({'type': 'ineq', 
             'fun': check_sum(C=2)})
 
 all_w = []
 s_n = 0
-for i in range(50):
-
-    init_weights = np.random.uniform(low=-0.15, high=0.15, size=(len(mu_dict),))
-    G_bounds = get_bounds(weights=init_weights, LB=-0.15, UB=0.15)
+n_trials = 200
+for i in range(n_trials):
+    init_weights = np.random.uniform(low=-0.3, high=0.3, size=(len(mu_dict),))
+    G_bounds = get_bounds(weights=init_weights, LB=-0.3, UB=0.3)
 
     opt_dict = { 'fun': lambda weights: get_ret_vol_mvutility(weights, d_ra=1)[2]*-1,
                   'x0': init_weights,
@@ -118,6 +118,7 @@ for i in range(50):
         s_n += 1
     else:
         pass
+
     opt_check = get_ret_vol_mvutility(weights=opt_weights, d_ra=1)
     df_final = pd.DataFrame(opt_weights, index=mu_returns.index, columns=['Optimal Weights'])
 
@@ -134,3 +135,16 @@ for i in range(50):
 mean_w = np.mean(all_w, axis=0)
 print(mean_w)
 
+opt_check = get_ret_vol_mvutility(weights=opt_weights, d_ra=1)
+df_final = pd.DataFrame(opt_weights, index=mu_returns.index, columns=['Optimal Weights'])
+
+print('\n')
+print(opt_results)
+print('\n')
+print('Portfolio Return: {:.4f}%'.format(opt_check[0]*100))
+print('Portfolio Volatility: {:.4f}%'.format(np.sqrt(opt_check[1])*100))
+print('(?) MV Utility: {:.4f}'.format(opt_check[2]))
+print('\n')
+print(df_final)
+print('\nSum: {}'.format(np.sum(opt_weights)))
+print('# Number of successes in {} Trials: {}'.format(n_trials, s_n))
