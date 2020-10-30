@@ -46,7 +46,7 @@ f, ax = plt.subplots(figsize=(10, 8))
 cmap_i = sns.diverging_palette(h_neg=220, h_pos=10, as_cmap=True)
 sns.heatmap(data=correl_returns, mask=mask_covar, cmap=cmap_i, center=0,
             square=True, linewidths=0.5, cbar_kws={"shrink": 0.8}, annot=True)
-plt.show()
+#plt.show()
 
 # Constrained Optimization (Mean-Variance Utility (missing lambda (risk aversion?))
 # (-) Objective function        Q(w, f) = E[r] - (0.5)*(lambda)*Var[r] = expected_return - (0.5)*(lambda)*(port_variance)
@@ -83,33 +83,44 @@ def get_bounds(weights, LB, UB):
     LB: Lower bound
     UB: Upper bound
     '''
-    w_B = tuple([[LB, UB] for w in list(range(len(weights)))])
+    w_B = tuple([(LB, UB) for w in list(range(len(weights)))])
     return w_B
 
 g_cons = ({'type': 'eq', 
-            'fun': target_vol(sigma=0.25)})
+            'fun': target_vol(sigma=0.2)})
 h_cons = ({'type': 'ineq', 
-            'fun': check_sum(C=1.5)})
-init_weights = np.full((1, len(mu_returns)), (1/len(mu_returns))).T 
-G_bounds = get_bounds(weights=init_weights, LB=-0.2, UB=0.2)
+            'fun': check_sum(C=2)})
 
-opt_dict = { 'fun': lambda weights: get_ret_vol_mvutility(weights, d_ra=1)[2]*-1,
-              'x0': init_weights,
-          'method': 'SLSQP',
-          'bounds': G_bounds,
-     'constraints': [h_cons, g_cons]}
+for i in range(200):
 
-opt_results = minimize(**opt_dict)
-opt_weights = opt_results.x
-opt_check = get_ret_vol_mvutility(weights=opt_weights, d_ra=1)
-df_final = pd.DataFrame(opt_weights, index=mu_returns.index, columns=['Optimal Weights'])
+    init_weights = np.random.uniform(low=-0.15, high=0.15, size=(len(mu_dict),))
+    G_bounds = get_bounds(weights=init_weights, LB=-0.15, UB=0.15)
 
-print('\n')
-print(opt_results)
-print('\n')
-print('Portfolio Return: {:.4f}%'.format(opt_check[0]*100))
-print('Portfolio Volatility: {:.4f}%'.format(np.sqrt(opt_check[1]*100)))
-print('(?) MV Utility: {:.4f}'.format(opt_check[2]))
-print('\n')
-print(df_final)
-print('\nSum: {}'.format(np.sum(opt_weights)))
+    opt_dict = { 'fun': lambda weights: get_ret_vol_mvutility(weights, d_ra=1)[2]*-1,
+                  'x0': init_weights,
+              'method': 'SLSQP',
+              'bounds': G_bounds,
+         'constraints': [h_cons, g_cons]}
+
+    try:
+        opt_results = minimize(**opt_dict)
+    except ValueError as e:
+        continue
+
+    opt_weights = opt_results.x
+    opt_check = get_ret_vol_mvutility(weights=opt_weights, d_ra=1)
+    df_final = pd.DataFrame(opt_weights, index=mu_returns.index, columns=['Optimal Weights'])
+
+    print('\n')
+    print(opt_results)
+    print('\n')
+    print('Portfolio Return: {:.4f}%'.format(opt_check[0]*100))
+    print('Portfolio Volatility: {:.4f}%'.format(np.sqrt(opt_check[1])*100))
+    print('(?) MV Utility: {:.4f}'.format(opt_check[2]))
+    print('\n')
+    print(df_final)
+    print('\nSum: {}'.format(np.sum(opt_weights)))
+
+
+
+
