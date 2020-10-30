@@ -23,8 +23,7 @@ df_main.index = pd.to_datetime(df_main.index)
 p_options = ['Adj Close', 'Close']
 df_ps = df_main.loc[:, [p_options[1]]].ffill(axis=0)
 df_ps.columns = df_ps.columns.droplevel()
-new_cols = [tick[:-3] for tick in list(df_ps.columns)]
-df_ps.columns = new_cols
+df_ps.columns = [tick[:-3] for tick in list(df_ps.columns)]
 
 print('\n')
 print(df_ps.info())
@@ -103,7 +102,7 @@ opt_dict = { 'fun': lambda weights: get_ret_vol_mvutility(weights, d_ra=1)[2]*-1
 opt_results = minimize(**opt_dict)
 opt_weights = opt_results.x
 opt_check = get_ret_vol_mvutility(weights=opt_weights, d_ra=1)
-df_final = pd.DataFrame(opt_weights, index=new_cols, columns=['Optimal Weights'])
+df_final = pd.DataFrame(opt_weights, index=mu_returns.index, columns=['Optimal Weights'])
 
 print('\n')
 print(opt_results)
