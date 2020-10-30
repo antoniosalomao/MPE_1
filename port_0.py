@@ -1,9 +1,11 @@
 import pandas as pd
 import numpy as np
+from numpy import *
 import yfinance as yf
 import matplotlib.pyplot as plt
 import matplotlib.dates as mpl_dates
 import seaborn as sns
+from scipy.optimize import minimize
 
 # Fetching historic returns (10 BR stocks)
 tickers_br = ['VALE3.SA', 'ITUB4.SA', 'PETR4.SA', 'ABEV3.SA', 'RADL3.SA',
@@ -26,6 +28,7 @@ df_ps.columns = new_cols
 
 print('\n')
 print(df_ps.info())
+print('\n')
 print(df_ps.head())
 print('\n')
 
@@ -40,35 +43,74 @@ for k, v in mu_dict.items():
 covar_returns = df_returns.cov()
 correl_returns = df_returns.corr()
 mask_covar = np.triu(np.ones_like(correl_returns, dtype=np.bool))
-f, ax = plt.subplots(figsize=(11, 9))
+f, ax = plt.subplots(figsize=(10, 8))
 cmap_i = sns.diverging_palette(h_neg=220, h_pos=10, as_cmap=True)
 sns.heatmap(data=correl_returns, mask=mask_covar, cmap=cmap_i, center=0,
             square=True, linewidths=0.5, cbar_kws={"shrink": 0.8}, annot=True)
-#plt.show()
+plt.show()
 
-# Arrays
-returns = np.array([v for v in mu_dict.values()])
-covar = np.array(covar_returns)
-weights = np.random.uniform(low=0.1, high=0.15, size=(10,))
-expected_return = returns.T@weights
-port_variance = weights.T@covar@weights
-port_stdev = np.sqrt(port_variance)
+# Constrained Optimization (Mean-Variance Utility (missing lambda (risk aversion?))
+# (-) Objective function        Q(w, f) = E[r] - (0.5)*(lambda)*Var[r] = expected_return - (0.5)*(lambda)*(port_variance)
+# (i) Target volatility         g(w, f) = port_variance - sigma^2; g(w, f) = 0
+# (ii) Max portfolio leverage   h(w, f) = np.sum(abs(weights)) - C; h(w, f) <= 0 
 
-print(expected_return)
-print(port_variance)
-print(port_stdev)
-
-# Optimization
-# ...
-# Reference 
 # Numerical Python - Ch. 6
+# Sequential Least Squares SQuares Programming (SLSQP) Algorithm 
 
+def get_ret_vol_mvutility(weights, d_ra):
+    '''
+    d_ra: risk aversion parameter
+    '''
+    weights = np.array(weights)
+    expected_return = np.sum(np.array(mean(df_returns, axis=0))*weights*252)
+    port_variance = weights.T@np.array(df_returns.cov())*252@weights
+    Q = expected_return - d_ra*(0.5)*port_variance
+    return np.array([expected_return, port_variance, Q])
 
+def check_sum(C):
+    '''
+    C: Max leverage
+    '''
+    return lambda weights: C - np.sum(abs(weights))
 
+def target_vol(sigma):
+    '''
+    sigma: target volatility
+    '''
+    return lambda weights: get_ret_vol_mvutility(weights, d_ra=1)[1] - (sigma**2)
 
+def get_bounds(weights, LB, UB):
+    '''
+    LB: Lower bound
+    UB: Upper bound
+    '''
+    w_B = tuple([[LB, UB] for w in list(range(len(weights)))])
+    return w_B
 
+g_cons = ({'type': 'eq', 
+            'fun': target_vol(sigma=0.25)})
+h_cons = ({'type': 'ineq', 
+            'fun': check_sum(C=1.5)})
+init_weights = np.full((1, len(mu_returns)), (1/len(mu_returns))).T 
+G_bounds = get_bounds(weights=init_weights, LB=-0.2, UB=0.2)
 
+opt_dict = { 'fun': lambda weights: get_ret_vol_mvutility(weights, d_ra=1)[2]*-1,
+              'x0': init_weights,
+          'method': 'SLSQP',
+          'bounds': G_bounds,
+     'constraints': [h_cons, g_cons]}
 
+opt_results = minimize(**opt_dict)
+opt_weights = opt_results.x
+opt_check = get_ret_vol_mvutility(weights=opt_weights, d_ra=1)
+df_final = pd.DataFrame(opt_weights, index=new_cols, columns=['Optimal Weights'])
 
-
-
+print('\n')
+print(opt_results)
+print('\n')
+print('Portfolio Return: {:.4f}%'.format(opt_check[0]*100))
+print('Portfolio Volatility: {:.4f}%'.format(np.sqrt(opt_check[1]*100)))
+print('(?) MV Utility: {:.4f}'.format(opt_check[2]))
+print('\n')
+print(df_final)
+print('\nSum: {}'.format(np.sum(opt_weights)))
