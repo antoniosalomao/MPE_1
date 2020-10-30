@@ -83,7 +83,7 @@ def get_bounds(weights, LB, UB):
     LB: Lower bound
     UB: Upper bound
     '''
-    w_B = tuple([(LB, UB) for w in list(range(len(weights)))])
+    w_B = np.array(tuple([(LB, UB) for w in list(range(len(weights)))]))
     return w_B
 
 g_cons = ({'type': 'eq', 
@@ -91,7 +91,9 @@ g_cons = ({'type': 'eq',
 h_cons = ({'type': 'ineq', 
             'fun': check_sum(C=2)})
 
-for i in range(200):
+all_w = []
+s_n = 0
+for i in range(50):
 
     init_weights = np.random.uniform(low=-0.15, high=0.15, size=(len(mu_dict),))
     G_bounds = get_bounds(weights=init_weights, LB=-0.15, UB=0.15)
@@ -106,8 +108,16 @@ for i in range(200):
         opt_results = minimize(**opt_dict)
     except ValueError as e:
         continue
-
+    
     opt_weights = opt_results.x
+    opt_success = opt_results.success
+    opt_mvutility = opt_results.fun
+    
+    if (opt_success == True) and (opt_mvutility <= 0):
+        all_w.append(opt_weights)
+        s_n += 1
+    else:
+        pass
     opt_check = get_ret_vol_mvutility(weights=opt_weights, d_ra=1)
     df_final = pd.DataFrame(opt_weights, index=mu_returns.index, columns=['Optimal Weights'])
 
@@ -121,6 +131,6 @@ for i in range(200):
     print(df_final)
     print('\nSum: {}'.format(np.sum(opt_weights)))
 
-
-
+mean_w = np.mean(all_w, axis=0)
+print(mean_w)
 
