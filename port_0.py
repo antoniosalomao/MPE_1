@@ -6,14 +6,15 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mpl_dates
 import seaborn as sns
 from scipy.optimize import minimize
+from operator import itemgetter
 
 # Fetching historic returns (10 BR stocks)
 tickers_br = ['VALE3.SA', 'ITUB4.SA', 'PETR4.SA', 'ABEV3.SA', 'RADL3.SA',
               'RENT3.SA', 'JBSS3.SA', 'EQTL3.SA', 'KLBN11.SA', 'TOTS3.SA']
 
-yfinance_dict = { 'tickers': sorted(tickers_br, reverse=False),
-                    'start': '2015-01-01',
-                      'end': '2020-10-30',
+yfinance_dict = {'tickers': sorted(tickers_br, reverse=False),
+                 'start': '2015-01-01',
+                 'end': '2020-10-30',
                  'interval': '1d'}
 
 df_main = yf.download(**yfinance_dict,)
@@ -34,7 +35,7 @@ print('\n')
 # (1) Returns (log)
 df_returns = np.log(df_ps).diff(1).dropna(how='all')
 mu_returns = df_returns.mean()
-mu_dict = {ticker:val for ticker, val in mu_returns.iteritems()}
+mu_dict = {ticker: val for ticker, val in mu_returns.iteritems()}
 for k, v in mu_dict.items():
     print('Ticker: {}'.format(k), '\t', 'Average return: {:.4f} %'.format(v*100))
 
@@ -51,10 +52,11 @@ sns.heatmap(data=correl_returns, mask=mask_covar, cmap=cmap_i, center=0,
 # Constrained Optimization (Mean-Variance Utility (missing lambda (risk aversion?))
 # (-) Objective function        Q(w, f) = E[r] - (0.5)*(lambda)*Var[r] = expected_return - (0.5)*(lambda)*(port_variance)
 # (i) Target volatility         g(w, f) = port_variance - sigma^2; g(w, f) = 0
-# (ii) Max portfolio leverage   h(w, f) = np.sum(abs(weights)) - C; h(w, f) <= 0 
+# (ii) Max portfolio leverage   h(w, f) = np.sum(abs(weights)) - C; h(w, f) <= 0
 
 # Numerical Python - Ch. 6
-# Sequential Least Squares SQuares Programming (SLSQP) Algorithm 
+# Sequential Least Squares SQuares Programming (SLSQP) Algorithm
+
 
 def get_ret_vol_mvutility(weights, d_ra):
     '''
@@ -66,17 +68,20 @@ def get_ret_vol_mvutility(weights, d_ra):
     Q = expected_return - d_ra*(0.5)*port_variance
     return np.array([expected_return, port_variance, Q])
 
+
 def check_sum(C):
     '''
     C: Max leverage
     '''
     return lambda weights: C - np.sum(abs(weights))
 
+
 def target_vol(sigma):
     '''
     sigma: target volatility
     '''
     return lambda weights: get_ret_vol_mvutility(weights, d_ra=1)[1] - (sigma**2)
+
 
 def get_bounds(weights, LB, UB):
     '''
@@ -86,41 +91,43 @@ def get_bounds(weights, LB, UB):
     w_B = np.array(tuple([(LB, UB) for w in list(range(len(weights)))]))
     return w_B
 
-g_cons = ({'type': 'eq', 
-            'fun': target_vol(sigma=0.2)})
-h_cons = ({'type': 'ineq', 
-            'fun': check_sum(C=2.5)})
+g_cons = ({'type': 'eq',
+           'fun': target_vol(sigma=0.225)})
+h_cons = ({'type': 'ineq',
+           'fun': check_sum(C=1.25)})
 
-all_w = []
+mvutility_L = []
 s_n = 0
-n_trials = 200
+n_trials = 20
 for i in range(n_trials):
-    init_weights = np.random.uniform(low=-0.15, high=0.15, size=(len(mu_dict),))
-    G_bounds = get_bounds(weights=init_weights, LB=-0.15, UB=0.15)
+    '''
+    Attempting to find true global minima via iteration
+    '''
+    init_weights = np.random.uniform(low=-0.125, high=0.125, size=(len(mu_dict),))
+    G_bounds = get_bounds(weights=init_weights, LB=-0.125, UB=0.125)
 
-    opt_dict = { 'fun': lambda weights: get_ret_vol_mvutility(weights, d_ra=1)[2]*-1,
-                  'x0': init_weights,
-              'method': 'SLSQP',
-              'bounds': G_bounds,
-         'constraints': [h_cons, g_cons]}
+    opt_dict = {'fun': lambda weights: get_ret_vol_mvutility(weights, d_ra=1)[2]*-1,
+                 'x0': init_weights,
+             'method': 'SLSQP',
+             'bounds': G_bounds,
+        'constraints': [h_cons, g_cons]}
 
     try:
         opt_results = minimize(**opt_dict)
     except ValueError as e:
         continue
-    
+
     opt_weights = opt_results.x
     opt_success = opt_results.success
     opt_mvutility = opt_results.fun
-    
-    if (opt_success == True) and (opt_mvutility <= 0):
-        all_w.append(opt_weights)
+
+    if (opt_success == True):
+        mvutility_L.append(tuple((opt_weights, opt_mvutility)))
         s_n += 1
     else:
-        pass
+        continue
 
     opt_check = get_ret_vol_mvutility(weights=opt_weights, d_ra=1)
-    df_final = pd.DataFrame(opt_weights, index=mu_returns.index, columns=['Optimal Weights'])
 
     print('\n')
     print(opt_results)
@@ -128,22 +135,29 @@ for i in range(n_trials):
     print('Portfolio Return: {:.4f}%'.format(opt_check[0]*100))
     print('Portfolio Volatility: {:.4f}%'.format(np.sqrt(opt_check[1])*100))
     print('(?) MV Utility: {:.4f}'.format(opt_check[2]))
-    print('\n')
-    print(df_final)
-    print('\nSum: {}'.format(np.sum(opt_weights)))
+    print('Sum(weights): {}'.format(np.sum(opt_weights)))
+    print('Trial #: {}'.format(i))
 
-mean_w = np.mean(all_w, axis=0)
-print(mean_w)
+weights_max_mvutility = min(np.array(mvutility_L), key=itemgetter(1))
+opt_W = weights_max_mvutility[0]
+opt_MV = weights_max_mvutility[1]
 
-opt_check = get_ret_vol_mvutility(weights=mean_w, d_ra=1)
-df_final = pd.DataFrame(mean_w, index=mu_returns.index, columns=['Optimal Mean Weights'])
+sol_Q = get_ret_vol_mvutility(weights=opt_W, d_ra=1)
+Q_returns = sol_Q[0]
+Q_vol = np.sqrt(sol_Q[1])
+Q_max = sol_Q[2]
+Q_df = pd.DataFrame(opt_W, index=mu_returns.index, columns=['Optimal Weights'])
 
-print('Portfolio Return: {:.4f}%'.format(opt_check[0]*100))
-print('Portfolio Volatility: {:.4f}%'.format(np.sqrt(opt_check[1])*100))
-print('(?) MV Utility: {:.4f}'.format(opt_check[2]))
+print('\n====== Solution ======')
+print('\n# Trials: {}'.format(n_trials))
+print('Algorithm success rate: {:.2f}%'.format(s_n*100/n_trials))
+print('\nMax. MV Utility: {:.6f}'.format(Q_max))
+print('Max. Expected Return: {:.6f}%'.format(Q_returns*100))
+print('Volatility: {:.6f}%'.format(Q_vol*100))
+print('Sum(Weights): {}'.format(np.sum(opt_W)))
+print('\n====== Final weights ======')
 print('\n')
-print(df_final)
-print('\nSum: {}'.format(np.sum(mean_w)))
-print('# Number of successes in {} Trials: {}'.format(n_trials, s_n))
+print(Q_df)
 
-# Note higher sharpe ratio !
+
+
