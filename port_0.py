@@ -68,20 +68,17 @@ def get_ret_vol_mvutility(weights, d_ra):
     Q = expected_return - d_ra*(0.5)*port_variance
     return np.array([expected_return, port_variance, Q])
 
-
 def check_sum(C):
     '''
     C: Max leverage
     '''
     return lambda weights: C - np.sum(abs(weights))
 
-
 def target_vol(sigma):
     '''
     sigma: target volatility
     '''
     return lambda weights: get_ret_vol_mvutility(weights, d_ra=1)[1] - (sigma**2)
-
 
 def get_bounds(weights, LB, UB):
     '''
@@ -141,7 +138,6 @@ for i in range(n_trials):
 weights_max_mvutility = min(np.array(mvutility_L), key=itemgetter(1))
 opt_W = weights_max_mvutility[0]
 opt_MV = weights_max_mvutility[1]
-
 sol_Q = get_ret_vol_mvutility(weights=opt_W, d_ra=1)
 Q_returns = sol_Q[0]
 Q_vol = np.sqrt(sol_Q[1])
