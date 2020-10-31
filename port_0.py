@@ -92,13 +92,13 @@ def get_bounds(weights, LB, UB):
     return w_B
 
 g_cons = ({'type': 'eq',
-           'fun': target_vol(sigma=0.225)})
+           'fun': target_vol(sigma=0.1325)})
 h_cons = ({'type': 'ineq',
            'fun': check_sum(C=1.25)})
 
 mvutility_L = []
 s_n = 0
-n_trials = 20
+n_trials = 500
 for i in range(n_trials):
     '''
     Attempting to find true global minima via iteration
@@ -151,9 +151,9 @@ Q_df = pd.DataFrame(opt_W, index=mu_returns.index, columns=['Optimal Weights'])
 print('\n====== Solution ======')
 print('\n# Trials: {}'.format(n_trials))
 print('Algorithm success rate: {:.2f}%'.format(s_n*100/n_trials))
-print('\nMax. MV Utility: {:.6f}'.format(Q_max))
-print('Max. Expected Return: {:.6f}%'.format(Q_returns*100))
-print('Volatility: {:.6f}%'.format(Q_vol*100))
+print('\nMax. MV Utility: {:.8f}'.format(Q_max))
+print('Max. Expected Return: {:.8f}%'.format(Q_returns*100))
+print('Volatility: {:.8f}%'.format(Q_vol*100))
 print('Sum(Weights): {}'.format(np.sum(opt_W)))
 print('\n====== Final weights ======')
 print('\n')
