@@ -1,0 +1,30 @@
+// OK
+digraph {
+	A [label=Portfolio color=lightblue2 shape=Mdiamond style=filled]
+	K [label="Risky assets" color=lightblue2 shape=rectangle style=filled]
+	a [label=Equities color=lightgrey shape=box style=filled]
+	b [label=DM]
+	c [label=EM]
+	d [label=Credit color=lightgrey shape=box style=filled]
+	e [label=DM]
+	f [label=EM]
+	L [label=Bonds color=lightblue2 shape=box style=filled]
+	g [label="DM rates"]
+	h [label="DM ILB"]
+	M [label=Alternatives color=lightblue2 shape=rectangle style=filled]
+	i [label="Real Estate"]
+	j [label=Commodities]
+	A -> K
+	K -> a
+	a -> b
+	a -> c
+	K -> d
+	d -> e
+	d -> f
+	A -> L
+	L -> g
+	L -> h
+	A -> M
+	M -> i
+	M -> j
+}
