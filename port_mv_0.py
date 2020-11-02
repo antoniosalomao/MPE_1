@@ -61,11 +61,15 @@ plt.title('Correlation matrix')
 def get_ret_vol_mvutility(weights, d_ra):
     '''
     d_ra: risk aversion parameter
+    d_ra --> infinity --> minimum variance portfolio
+
+    arg min problem --> d_ra * port_variance -------> d_ra^(-1) * expected_return
+
     '''
     weights = np.array(weights)
     expected_return = np.sum(np.array(mean(df_returns, axis=0))*weights*252)
     port_variance = weights.T@np.array(df_returns.cov())*252@weights
-    Q = expected_return - d_ra*(0.5)*port_variance
+    Q = (0.5)*port_variance - (d_ra**(-1))*expected_return
     return np.array([expected_return, port_variance, Q])
 
 def check_sum(C):
@@ -89,7 +93,7 @@ def get_bounds(weights, LB, UB):
     return w_B
 
 g_cons = ({'type': 'eq',
-           'fun': target_vol(sigma=0.3)})
+           'fun': target_vol(sigma=0.15)})
 h_cons = ({'type': 'ineq',
            'fun': check_sum(C=1.5)})
 
@@ -100,10 +104,10 @@ for i in range(n_trials):
     '''
     Attempting to find true global minima via iteration
     '''
-    init_weights = np.random.uniform(low=0.05, high=0.25, size=(len(mu_dict),))
-    G_bounds = get_bounds(weights=init_weights, LB=0.05, UB=0.25)
+    init_weights = np.random.uniform(low=-0.125, high=0.125, size=(len(mu_dict),))
+    G_bounds = get_bounds(weights=init_weights, LB=-0.125, UB=0.125)
 
-    opt_dict = {'fun': lambda weights: get_ret_vol_mvutility(weights, d_ra=1)[2]*-1,
+    opt_dict = {'fun': lambda weights: get_ret_vol_mvutility(weights, d_ra=1)[2],
                  'x0': init_weights,
              'method': 'SLSQP',
              'bounds': G_bounds,
@@ -208,15 +212,39 @@ print(Q_df)
 print('Sum(RC): {}, Portfolio volatility: {}'.format(np.sum(rc), port_vol))
 print('Sum(RRC): {}'.format(np.sum(rrc)))
 
+
+plt.figure(figsize=(10, 6))
+plt.bar(x=Q_df.index, height=Q_df['MV Weights'])
+plt.title('Weights')
+plt.xlabel('Stocks')
+
 plt.figure(figsize=(10,6))
 plt.bar(x=Q_df.index, height=Q_df['RRC'])
 plt.title('Relative Risk Contribution')
 plt.xlabel('Stocks')
-plt.show()
 
+plt.show()
 
 '''
 Goal: to allocate the weights so that all the assets contribute the same amount of risk,
 effectively "equalizing" the risk
+'''
+
+
+'''
+Questions...
+Estimating and correctly computing returns and the covariance matrix
+Stability issues
+Noise
+Correlations change over time
+Optimal portfolios are sensitive to estimation errors ... (inputs)
+
+Resampling techniques...
+
+RP approach
+HRP approach ... 
+Tree 
+
+
 '''
 
