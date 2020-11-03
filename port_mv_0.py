@@ -170,7 +170,7 @@ print(Q_df)
 # Risk decomposition ...
 
 '''
-# Risk Bedgeting Approach # (Demo)
+# Risk Budgeting Approach # (Demo)
 Risk decomposition ... 
 
 (MRC) - Marginal risk contribution
@@ -233,7 +233,7 @@ effectively "equalizing" the risk
 
 '''
 Questions...
-Estimating and correctly computing returns and the covariance matrix
+Estimating returns and covariance matrix
 Stability issues
 Noise
 Correlations change over time
