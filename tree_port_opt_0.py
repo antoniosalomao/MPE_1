@@ -68,6 +68,7 @@ def get_bounds(weights, LB, UB):
 
 eq_0 = ['VALE3.SA', 'ITUB4.SA', 'PETR4.SA', 'ABEV3.SA', 'RADL3.SA']
 eq_1 = ['RENT3.SA', 'JBSS3.SA', 'EQTL3.SA', 'KLBN11.SA', 'TOTS3.SA']
+eq_univ_yf = eq_0 + eq_1
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------–-----------------------#
 #------#
@@ -173,7 +174,7 @@ def node_optimization(eq_dict):
                       'method': 'SLSQP',
                       'bounds': G_bounds,
                  'constraints': [eq_j_h_cons]}
-                 
+
             try:
                 opt_results = minimize(**opt_dict)
                 #print(opt_results)
@@ -215,23 +216,81 @@ eq_1_main = eq_dict['eq_1']
 eq_0_port_dict = eq_0_main[8]
 eq_1_port_dict = eq_1_main[8]
 
+eq_0_dict = eq_0_main[7]
+eq_1_dict = eq_1_main[7]
+
 #-----------------------------------------------------------------------------------------------------------------------------------------------------–-----------------------#
 #-----------#
 # Functions #
 #-----------#
 
+# Combining weights?
+# https://quant.stackexchange.com/questions/11200/calculate-correlation-between-two-sub-portfolios-and-the-combined-portfolio
+
+print(eq_0_dict)
+print(eq_1_dict)
+
+eq_univ = [eq.replace('.SA', '') for eq in eq_univ_yf]
+
+eq_0_port_W = []
+eq_1_port_W = []
+
+for eq in eq_univ:
+    if eq in eq_0_dict:
+        eq_w = eq_0_dict[eq][1]
+        tuple_eq = tuple((eq, eq_w))
+        eq_0_port_W.append(tuple_eq)
+    elif eq not in eq_0_dict:
+        tuple_eq = tuple((eq, 0))
+        eq_0_port_W.append(tuple_eq)
+
+for eq in eq_univ:
+    if eq in eq_1_dict:
+        eq_w = eq_1_dict[eq][1]
+        tuple_eq = tuple((eq, eq_w))
+        eq_1_port_W.append(tuple_eq)
+    elif eq not in eq_1_dict:
+        tuple_eq = tuple((eq, 0))
+        eq_1_port_W.append(tuple_eq)
+
+print(eq_0_port_W)
+print(eq_1_port_W)
 
 
+portfolio_weights_df = pd.DataFrame(index=eq_univ, columns=['Portfolio 1', 'Portfolio 2'])
+portfolio_weights_df['Portfolio 1'] = [eq[1] for eq in eq_0_port_W]
+portfolio_weights_df['Portfolio 2'] = [eq[1] for eq in eq_1_port_W]
+print(portfolio_weights_df)
 
+portfolio_weights_df.sort_index(inplace=True)
+print(portfolio_weights_df)
 
-# Main Portfolio
+main_df = yfinance_df(eq_univ_yf)
+p_options = ['Adj Close', 'Close']
+df_ps = main_df.loc[:, [p_options[1]]].ffill(axis=0)
+df_ps.columns = df_ps.columns.droplevel()
+df_ps.columns = [tick[:-3] for tick in list(df_ps.columns)]
+df_ret = np.log(df_ps).diff(1).fillna(method='ffill').dropna(how='any')
+ 
+df_covar = df_ret.cov()
 
+covar_arr = np.array(df_covar)
+port_covar_matrix = np.array(portfolio_weights_df).T@np.array(df_covar)@np.array(portfolio_weights_df)*252
+print(port_covar_matrix)
 
-
-
+'''
+port_var =w*covar*w
+'''
 
 print(eq_0_port_dict)
 print(eq_1_port_dict)
+
+
+'''
+Optimize lvl 2
+'''
+
+
 
 
 
