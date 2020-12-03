@@ -79,7 +79,7 @@ df_yf = yfinance_df(eq_univ)
 p_options = ['Adj Close', 'Close']
 df_ps = df_yf.loc[:, [p_options[1]]].ffill(axis=0)
 df_ps.columns = df_ps.columns.droplevel()
-df_ps.columns = [tick[:-3] for tick in list(df_ps.columns)]
+df_ps.columns = [col.replace('.SA', '') for col in list(df_ps.columns)]
 # Computing log retuns
 df_ret = np.log(df_ps).diff(1).fillna(method='ffill').dropna(how='any')
 # Expected returns
@@ -145,21 +145,13 @@ print('Q Return: {:.2f}'.format(Q_return))
 print('Q Variance: {:.2f}'.format(Q_variance))
 print('Q Utility: {:.2f}'.format(Q_MV*-1))
 
-# Final allocation
+# Final Mean-Variance Allocation
 df_mv_allocation = pd.DataFrame(data=Q_W, index=df_ps.columns, columns=['MV Weights'])
 
-print(df_mv_allocation)
-
-#plt.figure(figsize=(10, 6))
-#plt.bar(data=df_mv_allocation['MV Weights'],x=df_mv_allocation.index, height=df_mv_allocation['MV Weights'])
-#plt.title('Mean-variance Allocation')
-#plt.xlabel('Equities')
-#plt.show()
-
 #-----------------------------------------------------------------------------------------------------------------------------------------------------–-----------------------#
-#-----------------------#
-# Matplotlib Intermezzo #
-#-----------------------#
+#-------------------------#
+# Matplotlib - Intermezzo #
+#-------------------------#
 
 # Risk Contribution, Relative Risk Contribution
 rc = []
@@ -201,11 +193,22 @@ for tick in ax.get_xticklabels():
 plt.tight_layout(pad=2.5)
 #plt.show()
 
-print(risk_contribution_df)
-print(sum(rc))
-
 #-----------------------------------------------------------------------------------------------------------------------------------------------------–-----------------------#
 
 #--------------------#
 # Main - Risk Parity #
 #--------------------#
+
+# Long-Only Formulation (Karush-Khun-Tucker conditions OK)
+
+
+
+
+
+
+
+
+
+
+
+
