@@ -14,25 +14,24 @@ def RP_X_sum(params_rp, Q, X_sum):
     '''
 
     # Selecting portfolio weights
-    X_n = Q.shape[0]
-    X = params_rp[:X_n]
+    X = params_rp[:Q.shape[0]]
     sum_X = sum(X) - X_sum
 
     return sum_X
 
 def F_RP_X(params_rp, Q, rho):
     '''
-    Objective Function F
+    Objective Function F, min X
     '''
     
     # Slicing array
     X_n = Q.shape[0]
     X, theta = params_rp[:X_n], params_rp[-1]
 
-    A = [math.pow(X[N]*Q[N]@X - theta, 2) for N, i in enumerate(X)]
-    B = sum(A) + rho*X.T@Q@X
+    least_squares = [math.pow(X[N]*Q[N]@X - theta, 2) for N, i in enumerate(X)]
+    F = sum(least_squares) + rho*X.T@Q@X
 
-    return B
+    return F
 
 def RP_opt(covariance_matrix, LB_UB_x, X_sum, rho):
     '''
@@ -42,11 +41,10 @@ def RP_opt(covariance_matrix, LB_UB_x, X_sum, rho):
     LB_x, UB_x, Q = LB_UB_x[0], LB_UB_x[0], covariance_matrix
     LB_theta, UB_theta = -50, 50
 
-    init_guess_X = np.random.uniform(low=LB_x , high=UB_x, size=len(Q))
-    init_guess_theta = np.random.uniform(low=LB_theta, high=UB_theta, size=1)
-    init_guess_X_theta = np.array(list(init_guess_X) + list(init_guess_theta))
-
-    bounds_X_theta = [LB_UB_x for _ in Q] + [(LB_theta, UB_theta)]
+    init_guess_X = list(np.random.uniform(low=LB_x , high=UB_x, size=len(Q)))
+    init_guess_theta = list(np.random.uniform(low=LB_theta, high=UB_theta, size=1))
+    init_guess_X_theta = np.array(init_guess_X + init_guess_theta)
+    bounds_X_theta = np.array([LB_UB_x for _ in Q] + [(LB_theta, UB_theta)])
 
     opt_dict = { 'fun': F_RP_X,
                   'x0': init_guess_X_theta,
@@ -84,7 +82,7 @@ def sequential_mv_rp(covariance_matrix, LB_x, UB_x, X_sum):
                                       'LB_UB_x': tuple((LB_x, UB_x)),
                                         'X_sum': X_sum,
                                           'rho': rho_i}
-
+                                          
             result = RP_opt(**rp_opt_dict)
             RP_X = result.x[:len(Q)]
 
