@@ -41,7 +41,7 @@ def RP_opt(covariance_matrix, LB_UB_x, X_sum, rho):
     # Loading variables
     LB_x, UB_x, Q = LB_UB_x[0], LB_UB_x[0], covariance_matrix
     LB_theta, UB_theta = -50, 50
-    
+
     init_guess_X = np.random.uniform(low=LB_x , high=UB_x, size=len(Q))
     init_guess_theta = np.random.uniform(low=LB_theta, high=UB_theta, size=1)
     init_guess_X_theta = np.array(list(init_guess_X) + list(init_guess_theta))
@@ -121,11 +121,6 @@ RP_report = sequential_mv_rp(**RP_param_dict)
 RP_MV = RP_report[-1]
 
 print(RP_MV)
-
-
-
-
-
 
 
 
