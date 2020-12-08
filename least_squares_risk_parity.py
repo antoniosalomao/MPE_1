@@ -8,7 +8,7 @@ from scipy.optimize import minimize
 # Functions #
 #-----------#
 
-def RP_X_sum(params_rp, X_sum, Q):
+def RP_X_sum(params_rp, Q, X_sum):
     '''
     Sum(weights) constraint
     '''
@@ -20,16 +20,13 @@ def RP_X_sum(params_rp, X_sum, Q):
 
     return sum_X
 
-def F_RP_X(params_rp, covariance_matrix, rho):
+def F_RP_X(params_rp, Q, rho):
     '''
     Objective Function F
     '''
-
-    # Loading variables
-    Q = covariance_matrix
-    X_n = Q.shape[0]
-
+    
     # Slicing array
+    X_n = Q.shape[0]
     X, theta = params_rp[:X_n], params_rp[-1]
 
     A = [math.pow(X[N]*Q[N]@X - theta, 2) for N, i in enumerate(X)]
@@ -54,7 +51,7 @@ def RP_opt(covariance_matrix, LB_UB_x, X_sum, rho):
                   'x0': init_guess_X_theta,
                 'args': tuple((Q, rho)),
               'bounds': bounds_X_theta,
-         'constraints': {'type': 'eq', 'fun': RP_X_sum, 'args': tuple((X_sum, Q))},
+         'constraints': {'type': 'eq', 'fun': RP_X_sum, 'args': tuple((Q, X_sum))},
                  'tol': math.pow(10, -14),
              'options': {'maxiter': math.pow(10, 6)}}
 
@@ -80,7 +77,7 @@ def sequential_mv_rp(covariance_matrix, LB_x, UB_x, X_sum):
     RP_solutions = []
     n_RP_trials = 50
     for rho_i in rho_L:
-        print('Rho i: {}'.format(rho_i))
+        print('====== Rho i: {} '.format(rho_i))
         for trial in range(n_RP_trials):
             rp_opt_dict = { 'covariance_matrix': Q,
                                       'LB_UB_x': tuple((LB_x, UB_x)),
