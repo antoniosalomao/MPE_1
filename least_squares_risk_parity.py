@@ -78,7 +78,7 @@ def sequential_mv_rp(covariance_matrix, LB_x, UB_x, X_sum):
     RP_solutions = []
     n_RP_trials = 50
     for rho_i in rho_L:
-        print('====== Rho i: {} '.format(rho_i))
+        print('\n====== Rho i: {} '.format(rho_i))
         for trial in range(n_RP_trials):
             rp_opt_dict = { 'covariance_matrix': Q,
                                       'LB_UB_x': tuple((LB_x, UB_x)),
@@ -86,9 +86,7 @@ def sequential_mv_rp(covariance_matrix, LB_x, UB_x, X_sum):
                                           'rho': rho_i}
 
             result = RP_opt(**rp_opt_dict)
-            result_fun = result.fun
-            result_X = result.x
-            RP_X = result_X[:len(Q)]
+            RP_X = result.x[:len(Q)]
 
             # Check RP solution
             RP_variance = RP_X@Q@RP_X
@@ -118,9 +116,19 @@ Q = np.array([[1, -0.9, 0.6],
 
 RP_param_dict = {'covariance_matrix': Q, 'LB_x': -1, 'UB_x': 1, 'X_sum': 1}
 RP_report = sequential_mv_rp(**RP_param_dict)
-RP_MV = RP_report[-1]
 
-print(RP_MV)
+RP_max_vol, RP_min_vol = RP_report[0][-1], RP_report[0][0]
+
+print(RP_max_vol)
+print(RP_min_vol)
+
+
+
+
+
+
+
+
 
 
 
