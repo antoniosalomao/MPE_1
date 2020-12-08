@@ -1,25 +1,22 @@
 import pandas as pd
 import numpy as np
 import math
-import scipy.optimize
 from scipy.optimize import minimize
-import sys
 
-# Variance-Covarariance Matrix Q
-Q = np.array([[1, -0.9, 0.6], 
-              [-0.9, 1, -0.2],
-              [0.6, -0.2, 4]])
+#-----------------------------------------------------------------------------------------------------------------------------------------------------------#
+#-----------#
+# Functions #
+#-----------#
 
-# Risk-Parity: Allowing for negative weights
-
-def RP_X_sum(params_rp, C):
+def RP_X_sum(params_rp, X_sum, Q):
     '''
     Sum(weights) constraint
     '''
 
     # Selecting portfolio weights
-    X = params_rp[:3]
-    sum_X = sum(X) - C
+    X_n = Q.shape[0]
+    X = params_rp[:X_n]
+    sum_X = sum(X) - X_sum
 
     return sum_X
 
@@ -44,65 +41,95 @@ def RP_opt(covariance_matrix, LB_UB_x, X_sum, rho):
     '''
     Risk Parity optimization
     '''
+    # Loading variables
+    LB_x, UB_x, Q = LB_UB_x[0], LB_UB_x[0], covariance_matrix
 
-    Q = covariance_matrix
-
-    init_guess_X = np.random.uniform(low=LB_UB_x[0] , high=LB_UB_x[1], size=len(Q))
+    init_guess_X = np.random.uniform(low=LB_x , high=UB_x, size=len(Q))
     init_guess_theta = np.random.uniform(low=-10, high=10, size=1)
     init_guess_X_theta = np.array(list(init_guess_X) + list(init_guess_theta))
 
-    bounds_X_theta = [LB_UB_x for _ in Q] + [(-10, 10)]
+    bounds_X_theta = [LB_UB_x for _ in Q] + [(-50, 50)]
 
     opt_dict = { 'fun': F_RP_X,
                   'x0': init_guess_X_theta,
                 'args': tuple((Q, rho)),
               'bounds': bounds_X_theta,
-         'constraints': {'type': 'eq', 'fun': RP_X_sum, 'args': [X_sum]},
-                 'tol': math.pow(10, -12),
+         'constraints': {'type': 'eq', 'fun': RP_X_sum, 'args': tuple((X_sum, Q))},
+                 'tol': math.pow(10, -14),
              'options': {'maxiter': math.pow(10, 6)}}
 
     opt_report = minimize(**opt_dict)
 
     return opt_report
 
-# Minimum variance with risk parity
-# Sequential min-variance risk parity algorithm
+def sequential_mv_rp(covariance_matrix, LB_x, UB_x, X_sum):
+    '''
+    Minimum variance with risk parity
+    Sequential min-variance risk parity algorithm
+    '''
 
-LB_UB_x = tuple((-2, 1))
-rho_L = []
-rho_start = 4
-for k in list(range(0, 12)):
-    rho_i = math.pow(10, rho_start)
-    rho_start -= 1
-    rho_L.append(rho_i)
+    Q = covariance_matrix
 
-RP_solutions = []
-n_RP_trials = 50
-for rho_i in rho_L:
-    for trial in range(n_RP_trials):
-        rp_opt_dict = { 'covariance_matrix': Q,
-                                  'LB_UB_x': LB_UB_x,
-                                    'X_sum': 1,
-                                      'rho': rho_i}
+    rho_L = []
+    rho_start = 4
+    for k in list(range(0, 12)):
+        rho_i = math.pow(10, rho_start)
+        rho_start -= 1
+        rho_L.append(rho_i)
 
-        result = RP_opt(**rp_opt_dict)
-        result_fun = result.fun
-        result_X = result.x
-        RP_X = result_X[:len(Q)]
+    RP_solutions = []
+    n_RP_trials = 50
+    for rho_i in rho_L:
+        print('Rho i: {}'.format(rho_i))
+        for trial in range(n_RP_trials):
+            rp_opt_dict = { 'covariance_matrix': Q,
+                                      'LB_UB_x': tuple((LB_x, UB_x)),
+                                        'X_sum': X_sum,
+                                          'rho': rho_i}
 
-        # Check RP solution
-        RP_variance = RP_X@Q@RP_X
-        RP_vol = math.pow(RP_variance, 0.5)
-        RC_target = (RP_variance)/len(RP_X)
-        RC_L = ([RP_X[N]*Q[N]@RP_X for N, i in enumerate(RP_X)])
-        RC_tolerance = math.pow(10, -5)
-        RC_test = [abs(RC_i - RC_target) for RC_i in RC_L]
+            result = RP_opt(**rp_opt_dict)
+            result_fun = result.fun
+            result_X = result.x
+            RP_X = result_X[:len(Q)]
 
-        if ((all(i <= RC_tolerance for i in RC_test)) == True):
-            print(rho_i, trial)
-            RP_solutions.append(tuple((RP_X, RP_vol)))
+            # Check RP solution
+            RP_variance = RP_X@Q@RP_X
+            RP_vol = math.pow(RP_variance, 0.5)
+            RC_target = (RP_variance)/len(RP_X)
+            RC_L = ([RP_X[N]*Q[N]@RP_X for N, i in enumerate(RP_X)])
+            RC_tolerance = math.pow(10, -5)
+            RC_test = [abs(RC_i - RC_target) for RC_i in RC_L]
 
-RP_X_sorted = sorted(RP_solutions, key= lambda x: x[1])
-RP_X = RP_X_sorted[0]
+            if ((all(i <= RC_tolerance for i in RC_test)) == True):
+                RP_solutions.append(tuple((RP_X, RP_vol)))
 
-print(RP_X)
+    RP_X_sorted = sorted(RP_solutions, key= lambda x: x[1])
+    RP_X = RP_X_sorted[0]
+
+    return RP_X_sorted, RP_X
+
+#-----------------------------------------------------------------------------------------------------------------------------------------------------------#
+#------#
+# Main #
+#------#
+
+# Variance-Covarariance Matrix Q
+Q = np.array([[1, -0.9, 0.6], 
+              [-0.9, 1, -0.2],
+              [0.6, -0.2, 4]])
+
+RP_param_dict = {'covariance_matrix': Q, 'LB_x': -1, 'UB_x': 1, 'X_sum': 1}
+RP_report = sequential_mv_rp(**RP_param_dict)
+RP_MV = RP_report[-1]
+
+print(RP_MV)
+
+
+
+
+
+
+
+
+
+
