@@ -40,12 +40,13 @@ def RP_opt(covariance_matrix, LB_UB_x, X_sum, rho):
     '''
     # Loading variables
     LB_x, UB_x, Q = LB_UB_x[0], LB_UB_x[0], covariance_matrix
-
+    LB_theta, UB_theta = -50, 50
+    
     init_guess_X = np.random.uniform(low=LB_x , high=UB_x, size=len(Q))
-    init_guess_theta = np.random.uniform(low=-10, high=10, size=1)
+    init_guess_theta = np.random.uniform(low=LB_theta, high=UB_theta, size=1)
     init_guess_X_theta = np.array(list(init_guess_X) + list(init_guess_theta))
 
-    bounds_X_theta = [LB_UB_x for _ in Q] + [(-50, 50)]
+    bounds_X_theta = [LB_UB_x for _ in Q] + [(LB_theta, UB_theta)]
 
     opt_dict = { 'fun': F_RP_X,
                   'x0': init_guess_X_theta,
