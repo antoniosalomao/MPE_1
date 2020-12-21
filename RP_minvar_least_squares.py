@@ -16,7 +16,8 @@ import seaborn as sns
 
 def get_expected_ret_covar(tickers_L):
     '''
-    Returns a dataframe from the yahoo finance library
+    Yahoo Finance
+    DataFrames: Expected Returns, Covariance Matrix, Correlation Matrix
     '''
     yfinance_dict_i = {'tickers': sorted(tickers_L, reverse=False),
                          'start': '2015-01-01',
@@ -43,9 +44,9 @@ def get_expected_ret_covar(tickers_L):
     return df_exp_ret, df_covar, df_correl
 
 #---------------------------------------------------------------------------------------------------------------------------#
-#------------------#
-# Helper functions #
-#------------------#
+#---------------------------------#
+# Optimization - Helper functions #
+#---------------------------------#
 
 def RP_X_sum(params_rp, covariance_matrix, C):
     '''
@@ -90,6 +91,71 @@ def RP_opt(covariance_matrix, LB_UB_x, X_sum, init_guess_X ,rho):
 
 #---------------------------------------------------------------------------------------------------------------------------#
 #---------------#
+# Main Function #
+#---------------#
+
+def get_SMVRP_report_RP_solutions(covar, rho_L, rho_n_trials, LB_i, UB_i, weights_constraint, RP_RC_tolerance, rho_tolerance):
+    '''
+    Sequential Minimum Variance Risk Parity
+    Complete RP Report
+    '''
+    all_solutions = []
+    for N, rho_i in enumerate(rho_L):
+        if (N == 0) | (len(all_solutions) == 0):
+            initial_X = np.random.uniform(low=LB_i, high=UB_i, size=len(covar))
+        elif (rho_i < rho_tolerance):
+            rho_i = 0
+        else:
+            initial_X = all_solutions[-1][0]
+
+        rp_opt_dict = { 'covariance_matrix': covar,
+                                  'LB_UB_x': tuple((LB_i, UB_i)),
+                                    'X_sum': weights_constraint,
+                             'init_guess_X': initial_X, 
+                                      'rho': rho_i}
+        rho_i_solutions = []
+        for trial in range(rho_n_trials):
+            result = RP_opt(**rp_opt_dict)
+            if (result.success == True):
+                rho_i_solutions.append(tuple((result.x[:len(covar)], result.fun)))
+        if len(rho_i_solutions) > 0:
+            best_X = np.array(sorted(rho_i_solutions, key= lambda x: x[1])[0][0])
+            port_variance= best_X@covar@best_X
+            port_vol = math.pow(port_variance, 0.5)
+            RC_L= ([best_X[N]*covar[N]@best_X for N, i in enumerate(best_X)])
+            RRC_L = ([k/sum(RC_L) for k in RC_L])
+            RC_target = port_variance/len(covar)
+            distance_to_rp = sum([math.pow(RC_i - RC_target, 2) for N, RC_i in enumerate(RC_L)])
+            target_herfindahl_index, herfindahl_index = (1/len(covar)),sum([math.pow(((best_X[N]*covar[N]@best_X)/port_variance), 2) for N, i in enumerate(best_X)])
+            RC_report = tuple((best_X, rho_i, port_vol, RC_L, RRC_L, distance_to_rp, RC_target))
+            all_solutions.append(RC_report)
+            print('='*10, 'Rho: {:.12f}'.format(rho_i), '='*10)
+            print('Hinderfahl Index: {:.20f}\t[Target: {:.2f}]'.format(herfindahl_index, target_herfindahl_index))
+            print('Portfolio volatility: {:.10f} %'.format(port_vol))
+            print('Distance to RisK Parity: {:.20f}'.format(distance_to_rp))
+            print('Weights: ',  [float('{:.4f}'.format(x)) for x in best_X])
+            print('RC: ', [float('{:.4f}'.format(x)) for x in RC_L], '\n')
+        else:
+            continue
+        if rho_i == 0:
+            break
+
+    # RP Tolerance
+    RP_solutions = []
+    for N, portfolio in enumerate(all_solutions):
+        RP_X, RP_rho, RP_vol, RP_RC, RP_RRC, RP_sqd_dist, RP_RC_target = portfolio
+        RC_test = [abs(RC_i - RP_RC_target) for RC_i in RP_RC]
+        if ((all(i <= RP_RC_tolerance for i in RC_test)) == True):
+            RP_solutions.append(portfolio)
+    
+    # RP Report (sorted by rho)
+    SMVRP_report = sorted(all_solutions, key=lambda x: x[1])
+
+    func_result = tuple((SMVRP_report, RP_solutions))
+    return func_result
+
+#---------------------------------------------------------------------------------------------------------------------------#
+#---------------#
 # Fetching data #
 #---------------#
 
@@ -101,67 +167,37 @@ df_ret, df_covar, df_correl = yf_data[0]*252, yf_data[1]*252, yf_data[2]
 ret, covar, correl = np.array(df_ret), np.array(df_covar), df_correl
 
 #---------------------------------------------------------------------------------------------------------------------------#
-#----------------------------#
-# Sequential min-variance RP #
-#----------------------------#
-'''covar = np.array([[1, -0.9, 0.6],
-                 [-0.9, 1, -0.2],
-                  [0.6, -0.2, 4]])'''
+#-----------------------------------#
+# Main - Sequential min-variance RP #
+#-----------------------------------#
 
-'''covar = np.array([[94.868, 33.750, 12.325, -1.178, 8.778],
-                  [33.750, 445.642, 98.955, -7.901, 84.954],
-                  [12.325, 98.955, 117.265, 0.503, 45.184],
-                  [-1.178, -7.901, 0.503, 5.460, 1.057],
-                  [8.778, 84.954, 45.184, 1.057, 34.126]])'''
+covar_k1 = np.array([[1, -0.9, 0.6],
+                     [-0.9, 1, -0.2],
+                     [0.6, -0.2, 4]])
 
-LB_UB_x = tuple((-1, 1))
-all_solutions = []
-rho_L = sorted([math.pow(2, i)*0 for i in np.arange(-20, 20)], reverse=True)
-n_trials = 20
-for N, rho_i in enumerate(rho_L):
-    if (N == 0) | (len(all_solutions) == 0) | (rho_i == 0):
-        initial_X = np.random.uniform(low=LB_UB_x[0], high=LB_UB_x[1], size=len(covar))
-    else:
-        initial_X = all_solutions[-1][0]
+covar_k2 = np.array([[94.868, 33.750, 12.325, -1.178, 8.778],
+                     [33.750, 445.642, 98.955, -7.901, 84.954],
+                     [12.325, 98.955, 117.265, 0.503, 45.184],
+                     [-1.178, -7.901, 0.503, 5.460, 1.057],
+                     [8.778, 84.954, 45.184, 1.057, 34.126]])
 
-    rp_opt_dict = { 'covariance_matrix': covar,
-                              'LB_UB_x': LB_UB_x,
-                                'X_sum': 1,
-                         'init_guess_X': initial_X, 
-                                  'rho': rho_i}
-    rho_i_solutions = []
-    for trial in range(n_trials):
-        result = RP_opt(**rp_opt_dict)
-        if (result.success == True):
-            rho_i_solutions.append(tuple((result.x[:len(covar)], result.fun)))
-    if len(rho_i_solutions) > 0:
-        best_X = np.array(sorted(rho_i_solutions, key= lambda x: x[1])[0][0])
-        port_variance = best_X@covar@best_X
-        port_vol = math.pow(port_variance, 0.5)
-        RC_target = port_variance/len(covar)
-        RC_L = ([best_X[N]*covar[N]@best_X for N, i in enumerate(best_X)])
-        RRC_L = ([k/sum(RC_L) for k in RC_L])
-        squared_difference_to_rp = sum([math.pow(RC_i - RC_target, 2) for N, RC_i in enumerate(RC_L)])
-        RC_report = tuple((best_X, rho_i, port_vol, RC_L, RRC_L, squared_difference_to_rp, RC_target))
-        all_solutions.append(RC_report)
-        print(squared_difference_to_rp)
-    else:
-        continue
+rp_least_squares_dict = { 'covar': covar,
+                          'rho_L': sorted([math.pow(2, i) for i in np.arange(-40, 15)], reverse=True),
+                   'rho_n_trials': 25,
+                           'LB_i': -1,
+                           'UB_i': 1,
+             'weights_constraint': 1,
+                'RP_RC_tolerance': math.pow(10, -4),
+                  'rho_tolerance': math.pow(10, -4)}
 
-# Tolerance
-RP_solutions = []
-RP_RC_tolerance = math.pow(10, -3)
-for N, portfolio in enumerate(all_solutions):
-    RP_X, RP_rho, RP_vol, RP_RC, RP_RRC, RP_sqd_dist, RP_RC_target = portfolio
-    RC_test = [abs(RC_i - RP_RC_target) for RC_i in RP_RC]
-    if ((all(i <= RP_RC_tolerance for i in RC_test)) == True):
-        RP_solutions.append(portfolio)
+SMVRP_report_v0, RP_solutions_v0 = get_SMVRP_report_RP_solutions(**rp_least_squares_dict)
+RP_X, RP_rho, RP_vol, RP_RC, RP_RRC, RP_sqd_dist, RP_target = SMVRP_report_v0[0]
 
-RP_report = sorted(all_solutions, key=lambda x: x[1])[0]
-RP_X, RP_rho, RP_vol, RP_RC, RP_RRC, RP_sqd_dist, RP_target = RP_report
-rho_L = [k[1] for k in all_solutions]
-vol_L = [k[2] for k in all_solutions]
-sqd_rp_diff_L = [k[5] for k in all_solutions]
+print(RP_X)
+
+rho_L = [k[1] for k in SMVRP_report_v0]
+vol_L = [k[2] for k in SMVRP_report_v0]
+sqd_rp_diff_L = [k[5] for k in SMVRP_report_v0]
 
 #---------------------------------------------------------------------------------------------------------------------------#
 #------------#
@@ -214,9 +250,9 @@ plt.legend()
 plt.gca().invert_xaxis()
 
 # Multiple RP solutions
-rho_L = [k[1] for k in RP_solutions]
+'''rho_L = [k[1] for k in RP_solutions]
 vol_L = [k[2] for k in RP_solutions]
-sqd_rp_diff_L = [k[5] for k in RP_solutions]
+sqd_rp_diff_L = [k[5] for k in RP_solutions]'''
 
 fig, ax3 = plt.subplots(figsize=(10, 8))
 ax3.scatter(rho_L, vol_L, marker='x', color='r')
@@ -225,7 +261,7 @@ ax3.set_ylabel('Volatility')
 ax3.set_xlabel('Nth trial')
 for i, txt in enumerate(vol_L):
     ax3.annotate('{:.2f}'.format(txt), (rho_L[i], vol_L[i]))
-plt.show()
+#plt.show()
 
 
 
